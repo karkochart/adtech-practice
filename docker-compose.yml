@@ -1,0 +1,50 @@
+services:
+  php:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    image: adtech_practice-php
+    container_name: adtech_php
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /var/www/app
+    environment:
+      COMPOSER_HOME: /tmp/composer
+    volumes:
+      - .:/var/www/app
+    ports:
+      - "8020:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: always
+    command: ["/bin/sh", "-c", "composer install --no-interaction; php artisan migrate --force; php artisan serve --host=0.0.0.0 --port=8000"]
+
+  db:
+    image: mysql:8.0
+    container_name: adtech_db
+    restart: always
+    command: ["--default-authentication-plugin=mysql_native_password", "--slow_query_log=1", "--long_query_time=0.2", "--innodb_print_all_deadlocks=1", "--innodb_buffer_pool_size=512M"]
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: adtech
+      MYSQL_USER: adtech
+      MYSQL_PASSWORD: adtech
+    ports:
+      - "127.0.0.1:33061:3306"
+    volumes:
+      - adtech_mysql:/var/lib/mysql
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+      - ./sql:/sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -proot --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+
+  redis:
+    image: redis:7-alpine
+    container_name: adtech_redis
+    restart: always
+
+volumes:
+  adtech_mysql:

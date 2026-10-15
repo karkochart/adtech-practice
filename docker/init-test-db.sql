@@ -1,0 +1,3 @@
+CREATE DATABASE IF NOT EXISTS adtech_test;
+GRANT ALL PRIVILEGES ON adtech_test.* TO 'adtech'@'%';
+FLUSH PRIVILEGES;
