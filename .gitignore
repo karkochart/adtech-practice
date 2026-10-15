@@ -14,5 +14,3 @@ yarn-error.log
 /.idea
 /.vscode
 
-# эталонные решения хранятся только локально
-/solutions/
