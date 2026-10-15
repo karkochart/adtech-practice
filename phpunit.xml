@@ -22,6 +22,9 @@
         <server name="BCRYPT_ROUNDS" value="4"/>
         <server name="CACHE_DRIVER" value="array"/>
         <server name="DB_HOST" value="db"/>
+        <server name="REDIS_CLIENT" value="predis"/>
+        <server name="REDIS_HOST" value="redis"/>
+        <server name="REDIS_DB" value="15"/>
         <server name="DB_DATABASE" value="adtech_test"/>
         <!--  -->
         <!--  -->
