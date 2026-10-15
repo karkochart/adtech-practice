@@ -13,6 +13,8 @@ mysql:          ## консоль MySQL
 	docker compose exec db mysql -uadtech -padtech adtech
 seed:           ## датасет для SQL-тренировки (2 млн событий)
 	$(EXEC) php artisan practice:seed-big --force
+sql-run:        ## выполнить свой ответ: make sql-run F=01  (файл sql/answers/01.sql)
+	docker compose exec -T db sh -c "mysql -uadtech -padtech adtech -t < /sql/answers/$(F).sql"
 sql-solutions:  ## прогнать эталонные SQL-решения
 	docker compose exec db sh -c "mysql -uadtech -padtech adtech -t < /sql/solutions.sql"
 sh:
