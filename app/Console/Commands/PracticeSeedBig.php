@@ -64,6 +64,13 @@ class PracticeSeedBig extends Command
         });
         DB::unprepared('DROP TABLE _digits');
 
+        // Новые активные кампании без единого события (для задач на LEFT JOIN и нули).
+        $t('campaigns без событий (5)', function () {
+            DB::unprepared("INSERT INTO campaigns (name, daily_budget, spent_today, status, created_at, updated_at)
+                SELECT CONCAT('new-campaign-', n), 1000000000000, 0, 'active', NOW(), NOW()
+                FROM (SELECT 1 n UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5) x");
+        });
+
         $t('click_id (числовые строки у кликов)', function () {
             DB::unprepared("UPDATE events SET click_id = CAST(id AS CHAR) WHERE type = 'click'");
         });
