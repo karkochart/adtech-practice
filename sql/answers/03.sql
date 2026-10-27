@@ -18,7 +18,7 @@ LIMIT 20;
 -- До:  type = ALL   rows = 1 992 450   Extra = Using where; Using filesort   время ≈ 443 мс
 --       (полный просмотр 2 млн строк, потом сортировка; Handler_read_rnd_next = 2 000 001)
 
--- Шаг 2. Ваш индекс (ALTER TABLE events ADD INDEX ...):
+-- Шаг 2. Индекс:
 
 CREATE INDEX idx_events_user_id_type_created_at_campaign_id
     ON events (user_id, type, created_at, campaign_id);

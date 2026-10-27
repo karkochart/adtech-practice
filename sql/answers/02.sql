@@ -2,7 +2,7 @@
 -- Время - от @now, а не от NOW().
 SET @now = (SELECT MAX(created_at) FROM events);
 
--- Ваш запрос ниже:
+-- Запрос:
 
 SELECT *
 FROM (SELECT t.*,
