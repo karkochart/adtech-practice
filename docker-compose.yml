@@ -10,6 +10,7 @@ services:
     environment:
       COMPOSER_HOME: /tmp/composer
       PHP_IDE_CONFIG: "serverName=adtech_practice"   # имя сервера в PhpStorm (Settings -> PHP -> Servers)
+      MEMCACHED_HOST: memcached                       # для CACHE_DRIVER=memcached; перекрывает значение из .env
     extra_hosts:
       - "host.docker.internal:host-gateway"           # на Linux этого имени нет по умолчанию - Xdebug стучится сюда к PhpStorm
     volumes:
@@ -47,6 +48,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: adtech_redis
+    restart: always
+
+  memcached:
+    image: memcached:1.6-alpine
+    container_name: adtech_memcached
     restart: always
 
 volumes:

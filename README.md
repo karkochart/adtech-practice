@@ -14,9 +14,11 @@
 Решения задач 1-3 пишете сами: заглушки лежат в `app/Services/`, условия - в docblock у тестов.
 
 ```
-make up        # php 7.3 + mysql 8 + redis; composer install + migrate
+make up        # php 7.3 + mysql 8 + redis + memcached; composer install + migrate
 make test      # phpunit на MySQL (база adtech_test)
 make seed      # датасет для SQL-заданий
 make mysql     # консоль
 ```
 Порты: приложение http://localhost:8020, MySQL 127.0.0.1:33061 (adtech/adtech). Redis доступен из контейнера как `redis:6379`, клиент `predis`, в тестах используется база 15.
+
+**Переключение кэша.** По умолчанию `CACHE_DRIVER=redis`. Чтобы проверить на Memcached (`memcached:11211`, расширение уже в образе), поставьте в `.env` `CACHE_DRIVER=memcached` и перезапустите контейнер: `docker compose up -d php`. Очереди остаются на Redis. После правки `docker/Dockerfile` образ нужно пересобрать: `docker compose up -d --build`.
