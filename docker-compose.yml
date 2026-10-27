@@ -9,6 +9,9 @@ services:
     working_dir: /var/www/app
     environment:
       COMPOSER_HOME: /tmp/composer
+      PHP_IDE_CONFIG: "serverName=adtech_practice"   # имя сервера в PhpStorm (Settings -> PHP -> Servers)
+    extra_hosts:
+      - "host.docker.internal:host-gateway"           # на Linux этого имени нет по умолчанию - Xdebug стучится сюда к PhpStorm
     volumes:
       - .:/var/www/app
     ports:
