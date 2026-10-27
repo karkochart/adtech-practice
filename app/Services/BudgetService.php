@@ -7,76 +7,110 @@ use App\Exceptions\CampaignInactiveException;
 use App\Exceptions\ImpressionConflictException;
 use App\Models\Campaign;
 use App\Models\Charge;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 class BudgetService
 {
-    /**
-     * @param int $campaignId
-     * @param string $impressionId уникальный id показа (идемпотентность)
-     * @param int $cost микро-единицы, положительное целое
-     * @return Charge
-     * @throws BudgetExceededException
-     * @throws CampaignInactiveException
-     * @throws ImpressionConflictException
-     */
     public function charge($campaignId, $impressionId, $cost)
     {
-        if ($cost !== (int)$cost || $cost <= 0) {
-            throw new \InvalidArgumentException('Cost must be a positive integer');
+        if (!is_int($cost) || $cost <= 0) {
+            throw new \InvalidArgumentException(
+                'Cost must be a positive integer'
+            );
         }
-        DB::beginTransaction();
+
         try {
-            $campaign = Campaign::where('id', $campaignId)
-                ->lockForUpdate()
-                ->first();
+            return DB::transaction(function () use (
+                $campaignId,
+                $impressionId,
+                $cost
+            ) {
+                $campaign = Campaign::where('id', $campaignId)
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-            if (!$campaign) {
-                throw new ModelNotFoundException("Campaign not found");
-            }
-            if ($campaign->status !== 'active') {
-                throw new CampaignInactiveException("Campaign is not active");
-            }
-            $charge = Charge::where('impression_id', $impressionId)->first();
-            if ($charge) {
-                if ($charge->cost != $cost || $charge->campaign_id != $campaignId) {
-                    throw new ImpressionConflictException("Impression conflict");
-                } else {
-                    DB::rollBack();
-                    return $charge; // идемпотентность: тот же показ, та же кампания, та же сумма
+                // Повтор уже обработанного показа
+                $existing = Charge::where(
+                    'impression_id',
+                    $impressionId
+                )->first();
+
+                if ($existing) {
+                    return $this->resolveExistingCharge(
+                        $existing,
+                        $campaignId,
+                        $cost
+                    );
                 }
-            }
-            if ($campaign->spent_today + $cost > $campaign->daily_budget) {
-                throw new BudgetExceededException("Budget exceeded");
-            }
-            $charge = Charge::create([
-                'impression_id' => $impressionId,
-                'campaign_id' => $campaignId,
-                'cost' => $cost
-            ]);
-            $campaign->spent_today += $cost;
-            $charge->save();
-            $campaign->save();
 
-            DB::commit();
-            return $charge;
+                if ($campaign->status !== 'active') {
+                    throw new CampaignInactiveException(
+                        'Campaign is not active'
+                    );
+                }
+
+                if ($campaign->spent_today + $cost
+                    > $campaign->daily_budget) {
+                    throw new BudgetExceededException(
+                        'Budget exceeded'
+                    );
+                }
+
+                $charge = Charge::create([
+                    'impression_id' => $impressionId,
+                    'campaign_id' => $campaignId,
+                    'cost' => $cost,
+                ]);
+
+                $campaign->spent_today += $cost;
+                $campaign->save();
+
+                return $charge;
+            });
         } catch (QueryException $e) {
-            DB::rollBack();
-            // 1062 - дубликат impression_id: параллельный запрос (на другую кампанию, общей блокировки нет)
-            // успел вставить первым. Транзакция уже откачена - смотрим, что записал победитель.
-            if (isset($e->errorInfo[1]) && $e->errorInfo[1] === 1062) {
-                $winner = Charge::where('impression_id', $impressionId)->first();
-                if ($winner && $winner->campaign_id == $campaignId && $winner->cost == $cost) {
-                    return $winner;   // тот же показ - идемпотентно возвращаем его
-                }
-                throw new ImpressionConflictException("Impression conflict");
+            if (!$this->isDuplicateKey($e)) {
+                throw $e;
             }
-            throw $e;   // любая другая ошибка базы (deadlock, обрыв соединения, CHECK, слишком длинное значение) - наружу
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            throw $e;
+
+            // DB::transaction уже выполнил rollback.
+            $winner = Charge::where(
+                'impression_id',
+                $impressionId
+            )->first();
+
+            if (!$winner) {
+                throw $e;
+            }
+
+            return $this->resolveExistingCharge(
+                $winner,
+                $campaignId,
+                $cost
+            );
         }
+    }
+
+    private function resolveExistingCharge(
+        Charge $charge,
+               $campaignId,
+               $cost
+    ) {
+        if (
+            $charge->campaign_id != $campaignId ||
+            $charge->cost != $cost
+        ) {
+            throw new ImpressionConflictException(
+                'Impression conflict'
+            );
+        }
+
+        return $charge;
+    }
+
+    private function isDuplicateKey(QueryException $e)
+    {
+        return isset($e->errorInfo[1])
+            && (int) $e->errorInfo[1] === 1062;
     }
 }
