@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\DB;
+
 class OutboxRelay
 {
     private $publisher;
@@ -20,6 +22,40 @@ class OutboxRelay
      */
     public function publishPending($batchSize = 100)
     {
-        throw new \RuntimeException('TODO: задача 5, условия в tests/Feature/OutboxTest.php');
+        $publishedCount = 0;
+
+        while ($publishedCount < $batchSize) {
+            $published = DB::transaction(function () {
+                $row = DB::table('outbox')
+                    ->whereNull('sent_at')
+                    ->orderBy('id')
+                    ->lock('FOR UPDATE SKIP LOCKED')
+                    ->first();
+
+                if (!$row) {
+                    return false;
+                }
+
+                $this->publisher->publish(
+                    $row->topic,
+                    $row->message_key,
+                    json_decode($row->payload, true)
+                );
+
+                DB::table('outbox')
+                    ->where('id', $row->id)
+                    ->update(['sent_at' => now()]);
+
+                return true;
+            });
+
+            if (!$published) {
+                break;
+            }
+
+            $publishedCount++;
+        }
+
+        return $publishedCount;
     }
 }
